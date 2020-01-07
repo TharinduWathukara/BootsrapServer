@@ -75,6 +75,10 @@ public class BootstrapServer {
                             } else if (nodes.size() == 2) {
                                 reply += "2 " + nodes.get(0).getIp() + " " + nodes.get(0).getPort() + " "
                                         + nodes.get(1).getIp() + " " + nodes.get(1).getPort();
+                            } else if (nodes.size() == 3) {
+                                reply += "3 " + nodes.get(0).getIp() + " " + nodes.get(0).getPort() + " "
+                                        + nodes.get(1).getIp() + " " + nodes.get(1).getPort() + " "
+                                        + nodes.get(2).getIp() + " " + nodes.get(2).getPort();
                             } else {
                                 Random r = new Random();
                                 int Low = 0;
