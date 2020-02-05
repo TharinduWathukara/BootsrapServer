@@ -104,7 +104,7 @@ public class Node {
                             int neighborPort = Integer.parseInt(st.nextToken());
 
                             // send join request to neighbor node
-                            String joinReq = " JOIN " + ip.getHostName() + " " + port;
+                            String joinReq = " JOIN " + ip.getHostAddress() + " " + port;
                             joinReq = String.format("%04d", joinReq.length() + 5) + " " + joinReq;
 
                             DatagramPacket joinRequest = new DatagramPacket(joinReq.getBytes(),
@@ -132,7 +132,7 @@ public class Node {
                     echo("" + nodes.size());
 
                 } else if (command.equals("UNREGNODE")) {
-                    String reqest = " UNREG " + ip + " " + port + " " + username;
+                    String reqest = " UNREG " + ip.getHostAddress() + " " + port + " " + username;
                     reqest = String.format("%04d", reqest.length() + 5) + " " + reqest;
 
                     DatagramPacket dpRequest = new DatagramPacket(reqest.getBytes(), reqest.getBytes().length, ip,
@@ -141,7 +141,7 @@ public class Node {
 
                 } else if (command.equals("UNROK")) {
                     for (int i = 0; i < nodes.size(); i++) {
-                        String leaveReq = " LEAVE " + ip + " " + port;
+                        String leaveReq = " LEAVE " + ip.getHostAddress() + " " + port;
                         leaveReq = String.format("%04d", leaveReq.length() + 5) + " " + leaveReq;
                         DatagramPacket leaveRequest = new DatagramPacket(leaveReq.getBytes(),
                                 leaveReq.getBytes().length, InetAddress.getByName(nodes.get(i).getIp()),
@@ -196,17 +196,17 @@ public class Node {
                             echo(fileCount + " files found for query - " + query);
                             echo("Files are - " + files);
 
-                            String reply = " SEROK " + fileCount + " " + ip + " " + port + " " + files + "\n";
-                            reply = String.format("%04d", reply.length() + 5) + " " + reply;
-                            DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length, 
-                                    incoming.getAddress(), incoming.getPort());
-                            sock.send(dpReply);
+                            // String reply = " SEROK " + fileCount + " " + ip + " " + port + " " + files;
+                            // reply = String.format("%04d", reply.length() + 5) + " " + reply;
+                            // DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length, 
+                            //         incoming.getAddress(), incoming.getPort());
+                            // sock.send(dpReply);
 
                         } else if ((hops - 1) > 0) {
                             echo("No files found for query - " + query);
                             echo("Send search requests for neighbor nodes");
 
-                            String serReq = " SER " + incoming.getAddress().getHostAddress() + " " + incoming.getPort()
+                            String serReq = " SER " + ip.getHostAddress() + " " + port
                                     + " \"" + query + "\" " + (hops - 1);
                             serReq = String.format("%04d", serReq.length() + 5) + " " + serReq;
 
@@ -248,7 +248,7 @@ public class Node {
                             echo(fileCount + " files found for query - " + query);
                             echo("Files are - " + files);
 
-                            String reply = " SEROK " + fileCount + " " + ip + " " + port + " " + files + "\n";
+                            String reply = " SEROK " + fileCount + " " + ip.getHostAddress() + " " + port + " " + files;
                             reply = String.format("%04d", reply.length() + 5) + " " + reply;
                             DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length,
                                     InetAddress.getByName(nodeIp), nodePort);
@@ -299,11 +299,43 @@ public class Node {
                     String file = stq.nextToken();
                     file = stq.nextToken();
 
-                    String dwnReq = " DWN " + ip + " " + port + " " + file;
-                    dwnReq = String.format("%04d", dwnReq.length() + 5) + " " + dwnReq;
-                    DatagramPacket dwnRequest = new DatagramPacket(dwnReq.getBytes(), dwnReq.getBytes().length,
-                            InetAddress.getByName(nodeIp), nodePort);
-                    sock.send(dwnRequest);
+                    if(ip.getHostAddress().equals(nodeIp) && nodePort==port && fileNames.contains(file.split("\\.")[0])){
+                        
+                        // random file generate here
+                        Random r = new Random();
+                        int x = r.nextInt(9) + 2;
+                        byte[] bytes = new byte[x * 1024 * 1024];
+                        r.nextBytes(bytes);
+
+                        try {
+                            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+                            byte[] hash = messageDigest.digest(bytes);
+
+                            StringBuilder sb = new StringBuilder(2 * hash.length);
+                            for (byte b : hash) {
+                                sb.append(String.format("%02x", b & 0xff));
+                            }
+                            String digest = sb.toString();
+
+                            echo("File : " + file + "   File Size : " + x + "MB   Hash : " + digest);
+
+                        } catch (NoSuchAlgorithmException ex) {
+                            Logger.getLogger(Node.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+
+                        // save file in local storage
+                        FileOutputStream fs = new FileOutputStream(
+                                "./Files/download_" + file.split("\\.")[0] + " " + new Date().getTime() + ".txt");
+                        fs.write(bytes, 0, bytes.length);
+                        echo("FILE DOWNLOADED");
+
+                    } else {
+                        String dwnReq = " DWN " + ip.getHostAddress() + " " + port + " \"" + file + "\"";
+                        dwnReq = String.format("%04d", dwnReq.length() + 5) + " " + dwnReq;
+                        DatagramPacket dwnRequest = new DatagramPacket(dwnReq.getBytes(), dwnReq.getBytes().length,
+                                InetAddress.getByName(nodeIp), nodePort);
+                        sock.send(dwnRequest);
+                    }
 
                 } else if (command.equals("DWN")) {
                     String nodeIp = st.nextToken();
@@ -339,7 +371,7 @@ public class Node {
 
                         // save file in local storage
                         FileOutputStream fs = new FileOutputStream(
-                                "./send_" + file.split("\\.")[0] + " " + new Date().getTime() + ".txt");
+                                "./Files/send_" + file.split("\\.")[0] + " " + new Date().getTime() + ".txt");
                         fs.write(bytes, 0, bytes.length);
 
                         // send file using TCP
@@ -369,7 +401,7 @@ public class Node {
                         }
 
                         // Send acknowledgement
-                        String reply = " DWNOK " + ip + " " + port + " " + file;
+                        String reply = " DWNOK " + ip.getHostAddress() + " " + port + " \"" + file + "\"";
                         reply = String.format("%04d", reply.length() + 5) + " " + reply;
                         DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length,
                                 InetAddress.getByName(nodeIp), nodePort);
@@ -396,7 +428,7 @@ public class Node {
                     }
                     byte[] bytes = bs.toByteArray();
                     FileOutputStream fr = new FileOutputStream(
-                            "./received_" + file.split("\\.")[0] + " " + new Date().getTime() + ".txt");
+                            "./Files/received_" + file.split("\\.")[0] + " " + new Date().getTime() + ".txt");
                     is.read(bytes, 0, bytes.length);
                     fr.write(bytes, 0, bytes.length);
                     echo("FILE RECEIVED");
