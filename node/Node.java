@@ -10,6 +10,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.CookieHandler;
 import java.net.DatagramPacket;
@@ -17,13 +18,18 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.StringTokenizer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.*;
 
-import javafx.scene.effect.Light.Spot;
+// import javafx.scene.effect.Light.Spot;
 
 /**
  *
@@ -98,7 +104,7 @@ public class Node {
                             int neighborPort = Integer.parseInt(st.nextToken());
 
                             // send join request to neighbor node
-                            String joinReq = " JOIN " + neighborIp + " " + neighborPort;
+                            String joinReq = " JOIN " + ip.getHostName() + " " + port;
                             joinReq = String.format("%04d", joinReq.length() + 5) + " " + joinReq;
 
                             DatagramPacket joinRequest = new DatagramPacket(joinReq.getBytes(),
@@ -114,7 +120,7 @@ public class Node {
                     String neighborIp = st.nextToken();
                     int neighborPort = Integer.parseInt(st.nextToken());
                     nodes.add(new Neighbour(neighborIp, neighborPort));
-                    echo("" + nodes.size());
+                    echo("Number of neighbours : " + nodes.size());
 
                     String reply = "0012 JOINOK 0";
                     DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length,
@@ -143,6 +149,10 @@ public class Node {
                         sock.send(leaveRequest);
                     }
                     nodes.clear();
+                    echo("-----LEAVE-----");
+                    if (nodes.size() == 0) {
+                        break;
+                    }
 
                 } else if (command.equals("LEAVE")) {
                     String ipleave = st.nextToken();
@@ -156,6 +166,7 @@ public class Node {
                             sock.send(dpReply);
                         }
                     }
+                    echo("Number of neighbours : " + nodes.size());
 
                 } else if (command.equals("LEAVEOK")) {
                     echo("-----LEAVE-----");
@@ -167,7 +178,8 @@ public class Node {
                     StringTokenizer stq = new StringTokenizer(s, "\"");
                     String query = stq.nextToken();
                     query = stq.nextToken();
-                    int hops = Integer.parseInt(stq.nextToken().substring(1));
+                    String last = stq.nextToken();
+                    int hops = Integer.parseInt(last.substring(1, last.length()-1));
                     if (hops > 0) {
                         String files = "";
                         int fileCount = 0;
@@ -184,19 +196,19 @@ public class Node {
                             echo(fileCount + " files found for query - " + query);
                             echo("Files are - " + files);
 
-                            // String reply = " SEROK " + fileCount + " " + ip + " " + port + " " + files;
-                            // reply = String.format("%04d", reply.length() + 5) + " " + reply;
-                            // DatagramPacket dpReply = new DatagramPacket(reply.getBytes(),
-                            // reply.getBytes().length,
-                            // incoming.getAddress(), incoming.getPort());
-                            // sock.send(dpReply);
+                            String reply = " SEROK " + fileCount + " " + ip + " " + port + " " + files + "\n";
+                            reply = String.format("%04d", reply.length() + 5) + " " + reply;
+                            DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length, 
+                                    incoming.getAddress(), incoming.getPort());
+                            sock.send(dpReply);
+
                         } else if ((hops - 1) > 0) {
                             echo("No files found for query - " + query);
                             echo("Send search requests for neighbor nodes");
 
                             String serReq = " SER " + incoming.getAddress().getHostAddress() + " " + incoming.getPort()
-                                    + " " + query + " " + (hops - 1);
-                            serReq = String.format("%04d", reply.length() + 5) + " " + serReq;
+                                    + " \"" + query + "\" " + (hops - 1);
+                            serReq = String.format("%04d", serReq.length() + 5) + " " + serReq;
 
                             for (int i = 0; i < nodes.size(); i++) {
                                 DatagramPacket serRequest = new DatagramPacket(serReq.getBytes(),
@@ -212,12 +224,13 @@ public class Node {
 
                 } else if (command.equals("SER")) {
                     String nodeIp = st.nextToken();
-                    String nodePort = st.nextToken();
+                    int nodePort = Integer.parseInt(st.nextToken());
 
                     StringTokenizer stq = new StringTokenizer(s, "\"");
                     String query = stq.nextToken();
                     query = stq.nextToken();
-                    int hops = Integer.parseInt(stq.nextToken().substring(1));
+                    String last = stq.nextToken();
+                    int hops = Integer.parseInt(last.substring(1));
 
                     if (hops > 0) {
                         String files = "";
@@ -235,17 +248,18 @@ public class Node {
                             echo(fileCount + " files found for query - " + query);
                             echo("Files are - " + files);
 
-                            String reply = " SEROK " + fileCount + " " + ip + " " + port + " " + files;
+                            String reply = " SEROK " + fileCount + " " + ip + " " + port + " " + files + "\n";
                             reply = String.format("%04d", reply.length() + 5) + " " + reply;
                             DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length,
                                     InetAddress.getByName(nodeIp), nodePort);
                             sock.send(dpReply);
+
                         } else if ((hops - 1) > 0) {
                             echo("No files found for query - " + query);
                             echo("Send search requests for neighbor nodes");
 
-                            String serReq = " SER " + incoming.getAddress().getHostAddress() + " " + incoming.getPort()
-                                    + " " + query + " " + (hops - 1);
+                            String serReq = " SER " + nodeIp + " " + nodePort
+                                    + " \"" + query + "\" " + (hops - 1);
                             serReq = String.format("%04d", serReq.length() + 5) + " " + serReq;
 
                             for (int i = 0; i < nodes.size(); i++) {
@@ -320,13 +334,13 @@ public class Node {
                             echo("File : " + file + "   File Size : " + x + "MB   Hash : " + digest);
 
                         } catch (NoSuchAlgorithmException ex) {
-                            Logger.getLogger(ClientNodes.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(Node.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
                         // save file in local storage
                         FileOutputStream fs = new FileOutputStream(
                                 "./send_" + file.split("\\.")[0] + " " + new Date().getTime() + ".txt");
-                        fr.write(bytes, 0, bytes.length);
+                        fs.write(bytes, 0, bytes.length);
 
                         // send file using TCP
                         Thread t = new Thread() {
@@ -348,7 +362,11 @@ public class Node {
                         };
 
                         t.start();
-                        Thread.sleep(1000);
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
 
                         // Send acknowledgement
                         String reply = " DWNOK " + ip + " " + port + " " + file;
@@ -395,7 +413,7 @@ public class Node {
                         echo(fileNames.get(i));
                     }
 
-                    String reply = "0012 ECHOK 0";
+                    String reply = "0012 ECHOK 0\n";
                     DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length,
                             incoming.getAddress(), incoming.getPort());
                     sock.send(dpReply);
