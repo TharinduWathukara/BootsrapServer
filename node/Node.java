@@ -40,13 +40,18 @@ public class Node {
     /**
      * @param args the command line arguments
      */
+    static String username;
+    static int ser_msg_count = 0;
+    static int fwd_msg_count = 0;
+    static int ans_msg_count = 0;
+
     public static void main(String[] args) {
 
         DatagramSocket sock = null;
         InetAddress ip;
         int port = Integer.parseInt(args[0]);
         int masterPort = 55555;
-        String username = args[1];
+        username = args[1];
         List<Neighbour> nodes = new ArrayList<Neighbour>();
         String s;
         List<String> fileNames = new ArrayList<String>();
@@ -175,6 +180,7 @@ public class Node {
                     }
 
                 } else if (command.equals("SEARCH")) {
+                    ser_msg_count++;
                     StringTokenizer stq = new StringTokenizer(s, "\"");
                     String query = stq.nextToken();
                     query = stq.nextToken();
@@ -193,6 +199,7 @@ public class Node {
                         }
 
                         if (fileCount > 0) {
+                            ans_msg_count++;
                             echo(fileCount + " files found for query - " + query);
                             echo("Files are - " + files);
 
@@ -203,6 +210,7 @@ public class Node {
                             // sock.send(dpReply);
 
                         } else if ((hops - 1) > 0) {
+                            fwd_msg_count++;
                             echo("No files found for query - " + query);
                             echo("Send search requests for neighbor nodes");
 
@@ -223,6 +231,7 @@ public class Node {
                     }
 
                 } else if (command.equals("SER")) {
+                    ser_msg_count++;
                     String nodeIp = st.nextToken();
                     int nodePort = Integer.parseInt(st.nextToken());
 
@@ -245,6 +254,7 @@ public class Node {
                         }
 
                         if (fileCount > 0) {
+                            ans_msg_count++;
                             echo(fileCount + " files found for query - " + query);
                             echo("Files are - " + files);
 
@@ -255,6 +265,7 @@ public class Node {
                             sock.send(dpReply);
 
                         } else if ((hops - 1) > 0) {
+                            fwd_msg_count++;
                             echo("No files found for query - " + query);
                             echo("Send search requests for neighbor nodes");
 
@@ -445,10 +456,25 @@ public class Node {
                         echo(fileNames.get(i));
                     }
 
+                    echo("STATS");
+                    echo("SEARCH QUERIES : " + ser_msg_count);
+                    echo("FORWARD QUERIES : " + fwd_msg_count);
+                    echo("SUCCESS QUERIES : " + ans_msg_count);
+                    echo("NODE_DEGREE : " + nodes.size());
+
                     String reply = "0012 ECHOK 0\n";
                     DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length,
                             incoming.getAddress(), incoming.getPort());
                     sock.send(dpReply);
+                
+                } else if (command.equals("ECHO_STATS")) {
+
+                    echo("STATS");
+                    echo("SEARCH QUERIES : " + ser_msg_count);
+                    echo("FORWARD QUERIES : " + fwd_msg_count);
+                    echo("SUCCESS QUERIES : " + ans_msg_count);
+                    echo("NODE_DEGREE : " + nodes.size());
+
                 }
 
             }
@@ -460,7 +486,7 @@ public class Node {
 
     // simple function to echo data to terminal
     public static void echo(String msg) {
-        System.out.println(msg);
+        System.out.println(new Date().getTime() + " | " + username + " | "+ msg);
     }
 
     public static void generateRandomFiles(List<String> fileNames) {

@@ -8,7 +8,9 @@ package bs;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.StringTokenizer;
@@ -122,6 +124,18 @@ public class BootstrapServer {
                     DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length,
                             incoming.getAddress(), incoming.getPort());
                     sock.send(dpReply);
+                } else if (command.equals("ECHO_STATS")) {
+                    
+                    for (int i = 0; i < nodes.size(); i++) {
+                        String reply = "0012 ECHO_STATS 0";
+                        DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length,
+                                InetAddress.getByName(nodes.get(i).getIp()), nodes.get(i).getPort());
+                        sock.send(dpReply);
+                        }
+                    String reply = "0012 ECHOK 0\n";
+                    DatagramPacket dpReply = new DatagramPacket(reply.getBytes(), reply.getBytes().length,
+                            incoming.getAddress(), incoming.getPort());
+                    sock.send(dpReply);
                 }
 
             }
@@ -134,6 +148,6 @@ public class BootstrapServer {
 
     // simple function to echo data to terminal
     public static void echo(String msg) {
-        System.out.println(msg);
+        System.out.println(new Date().getTime() + " | BS | " +msg);
     }
 }

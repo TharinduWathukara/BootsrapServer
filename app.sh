@@ -21,3 +21,4 @@ timeout 1 gnome-terminal --geometry 80x20+1180+550 -- java node.Node 55565 Node1
 
 #open terminal to send requests
 gnome-terminal --geometry 90x20+100+650
+
